@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Expérimentation — Assistant Juridique BAM</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ── En-tête ── -->
+  <header class="app-header">
+    <div class="app-header__logo">
+      <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="28" height="28" rx="7" fill="rgba(255,255,255,.2)"/>
+        <path d="M7 20V10l7-4 7 4v10" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>
+        <path d="M11 20v-5h6v5" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>
+      </svg>
+      <span>Assistant Juridique BAM</span>
+    </div>
+    <nav class="app-header__nav">
+      <a href="/static/index.html"        id="nav-chat">Conversation</a>
+      <a href="/static/pages/experiment.html" class="active" id="nav-exp">Expérimentation</a>
+    </nav>
+  </header>
+
+  <!-- ── Barre latérale ── -->
+  <aside class="app-sidebar">
+    <div class="sidebar__header">
+      <span class="sidebar__title">Questions exemples</span>
+    </div>
+    <div class="sidebar__list" style="padding:var(--space-sm)">
+      <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-sm);padding:0 var(--space-xs)">
+        Cliquer pour insérer une question
+      </div>
+      <button class="exp-question-chip welcome__chip" style="width:100%;text-align:left;margin-bottom:6px">
+        Conditions d'agrément des établissements de crédit
+      </button>
+      <button class="exp-question-chip welcome__chip" style="width:100%;text-align:left;margin-bottom:6px">
+        Calcul des fonds propres réglementaires
+      </button>
+      <button class="exp-question-chip welcome__chip" style="width:100%;text-align:left;margin-bottom:6px">
+        Obligations de lutte contre le blanchiment
+      </button>
+      <button class="exp-question-chip welcome__chip" style="width:100%;text-align:left;margin-bottom:6px">
+        Ratio de liquidité à court terme
+      </button>
+      <button class="exp-question-chip welcome__chip" style="width:100%;text-align:left;margin-bottom:6px">
+        Gouvernance des établissements de crédit
+      </button>
+      <button class="exp-question-chip welcome__chip" style="width:100%;text-align:left">
+        Risques opérationnels
+      </button>
+    </div>
+    <div class="sidebar__footer">
+      Comparaison des stratégies
+    </div>
+  </aside>
+
+  <!-- ── Contenu principal ── -->
+  <main class="app-main">
+    <div class="page active" id="page-exp">
+      <div class="exp-layout">
+
+        <!-- Contrôles -->
+        <div class="exp-controls">
+          <h2>Comparaison des stratégies de recherche</h2>
+
+          <div class="exp-form">
+            <div class="form-field" style="grid-column:1/2">
+              <label for="exp-query">Question juridique</label>
+              <input type="text" id="exp-query" class="form-input"
+                placeholder="Ex : Conditions d'agrément des établissements de crédit">
+            </div>
+
+            <div class="form-field">
+              <label for="exp-strategy">Stratégie</label>
+              <select id="exp-strategy" class="form-select">
+                <option value="structural">Structurel</option>
+                <option value="hierarchical">Hiérarchique</option>
+                <option value="parent_child">Parent / enfant</option>
+              </select>
+            </div>
+
+            <div class="form-field">
+              <label for="exp-mode">Mode</label>
+              <select id="exp-mode" class="form-select">
+                <option value="semantic">Sémantique</option>
+                <option value="hybrid">Hybride</option>
+              </select>
+            </div>
+
+            <div class="form-field">
+              <label for="exp-limit">Résultats</label>
+              <select id="exp-limit" class="form-select">
+                <option value="5" selected>5</option>
+                <option value="10">10</option>
+              </select>
+            </div>
+
+            <div class="form-field" style="justify-content:flex-end">
+              <label style="visibility:hidden">Action</label>
+              <button id="btn-run-exp" class="btn-primary">Rechercher</button>
+            </div>
+          </div>
+
+          <div style="margin-top:var(--space-sm);display:flex;gap:var(--space-sm);flex-wrap:wrap;align-items:center">
+            <button id="btn-compare-all" class="btn-compare-all">
+              Comparer les 3 stratégies
+            </button>
+            <span style="font-size:var(--text-xs);color:var(--color-text-muted)">
+              Lance les 3 stratégies en parallèle avec le mode sélectionné.
+              Attention&nbsp;: mode hybride lent sur les grandes stratégies (&gt;5 000 chunks).
+            </span>
+          </div>
+        </div>
+
+        <!-- Résultats -->
+        <div style="overflow-y:auto;display:flex;flex-direction:column;gap:var(--space-md)">
+          <div id="exp-results" class="exp-results"></div>
+          <div id="exp-metrics"></div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+</div><!-- /app-shell -->
+
+<script type="module">
+  import { initExperiment } from '/static/js/experiment.js';
+  initExperiment();
+</script>
+
+</body>
+</html>

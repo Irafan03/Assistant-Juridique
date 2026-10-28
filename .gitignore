@@ -1,4 +1,27 @@
+# Python
 __pycache__/
 *.py[cod]
+*.pyo
 .pytest_cache/
 .venv/
+*.egg-info/
+dist/
+build/
+
+# Index vectoriels (FAISS + SQLite) — trop volumineux pour Git
+# Relancer : python scripts/index_bam.py
+data/index/
+
+# Modèles sentence-transformers téléchargés
+*.bin
+*.safetensors
+
+# Environnement
+.env
+*.local
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
+*~

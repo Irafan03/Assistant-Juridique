@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from pydantic import BaseModel, Field
 
@@ -24,13 +25,20 @@ def create_app(retriever: LegalRetriever | None = None, *, document_root: str | 
     app.state.retriever = retriever
     app.state.document_root = Path(document_root).resolve() if document_root else None
 
-    @app.get("/", response_class=HTMLResponse)
-    def home() -> str:
-        return """<!doctype html><html lang='fr'><meta charset='utf-8'><title>Recherche juridique</title>
-<style>body{font:16px system-ui;max-width:900px;margin:3rem auto;padding:0 1rem;color:#202124}textarea{width:100%;height:90px}button,select{padding:.6rem;margin:.5rem 0}article{border-top:1px solid #ddd;padding:1rem 0}small{color:#555}</style>
-<h1>Recherche juridique</h1><p>Interrogez les passages indexés. Les liens et références dépendent des métadonnées du corpus.</p>
-<textarea id='q' placeholder='Votre question en français ou en arabe'></textarea><br><select id='strategy'><option value='structural'>Structurel</option><option value='hierarchical'>Hiérarchique</option><option value='parent_child'>Parent / enfant</option></select><select id='mode'><option value='hybrid'>Recherche hybride</option><option value='semantic'>Vectorielle seule</option></select><button onclick='run()'>Rechercher</button><div id='out'></div>
-<script>async function run(){const out=document.querySelector('#out');out.textContent='Recherche…';try{const r=await fetch('/api/search',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({query:document.querySelector('#q').value,strategy:document.querySelector('#strategy').value,retrieval_mode:document.querySelector('#mode').value,generate_answer:true})});const d=await r.json();if(!r.ok)throw Error(d.detail||'Erreur');out.innerHTML='';if(d.answer){const answer=document.createElement('article'),h=document.createElement('h2'),p=document.createElement('p');h.textContent='Réponse';p.textContent=d.answer;answer.append(h,p);out.append(answer)}for(const [title,items] of [['Circulaires',d.circulaires],['Textes associés',d.textes_associes],['Articles',d.articles],['Passages',d.passages]]){const h=document.createElement('h2');h.textContent=title;out.append(h);for(const x of items){const a=document.createElement('article'),t=document.createElement('p'),m=document.createElement('small');t.textContent=x.text;m.textContent=[x.citation_id,x.title,x.article_number,x.source_file?'Fichier original':null,x.page_number?'p. '+x.page_number:null,x.relation].filter(Boolean).join(' · ');a.append(m,t);if(x.source_file){const link=document.createElement('a');link.textContent='Ouvrir le document';link.href='/api/documents/'+encodeURIComponent(x.document_id)+'/file';a.append(link)}out.append(a)}}for(const w of d.warnings||[]){const p=document.createElement('p');p.textContent=w;out.prepend(p)}}catch(e){out.textContent=e.message}}</script></html>"""
+    # ── Fichiers statiques (frontend) ────────────────────────────────────────
+    # Le dossier frontend/ est monté sous /static. Seul ce chemin est exposé ;
+    # aucun fichier hors de ce répertoire n'est accessible par cette route.
+    _frontend_dir = Path(__file__).parent.parent / "frontend"
+    if _frontend_dir.is_dir():
+        app.mount("/static", StaticFiles(directory=str(_frontend_dir), html=True),
+                  name="static")
+
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    def home():
+        """Redirige vers le frontend si disponible, sinon interface de secours."""
+        if _frontend_dir.is_dir():
+            return RedirectResponse(url="/static/index.html", status_code=302)
+        return HTMLResponse(_legacy_ui())
 
     @app.post("/api/search")
     def search(request: SearchRequest) -> dict[str, Any]:
@@ -79,3 +87,37 @@ def create_app(retriever: LegalRetriever | None = None, *, document_root: str | 
 
 
 app = create_app()
+
+
+def _legacy_ui() -> str:
+    """Interface HTML de secours (utilisée quand le dossier frontend/ est absent)."""
+    return (
+        "<!doctype html><html lang='fr'><meta charset='utf-8'>"
+        "<title>Recherche juridique</title>"
+        "<style>body{font:16px system-ui;max-width:900px;margin:3rem auto;padding:0 1rem}"
+        "textarea{width:100%;height:90px}button,select{padding:.6rem;margin:.5rem 0}"
+        "article{border-top:1px solid #ddd;padding:1rem 0}small{color:#555}</style>"
+        "<h1>Recherche juridique</h1>"
+        "<p>Interface de secours. Le dossier frontend/ est absent.</p>"
+        "<textarea id='q' placeholder='Votre question'></textarea><br>"
+        "<select id='s'><option value='structural'>Structurel</option>"
+        "<option value='hierarchical'>Hierarchique</option>"
+        "<option value='parent_child'>Parent/enfant</option></select>"
+        "<select id='m'><option value='hybrid'>Hybride</option>"
+        "<option value='semantic'>Semantique</option></select>"
+        "<button onclick='run()'>Rechercher</button><div id='out'></div>"
+        "<script>async function run(){const out=document.querySelector('#out');"
+        "out.textContent='Recherche...';"
+        "try{const r=await fetch('/api/search',{method:'POST',"
+        "headers:{'content-type':'application/json'},"
+        "body:JSON.stringify({query:document.querySelector('#q').value,"
+        "strategy:document.querySelector('#s').value,"
+        "retrieval_mode:document.querySelector('#m').value})});"
+        "const d=await r.json();if(!r.ok)throw Error(d.detail||'Erreur');"
+        "out.innerHTML='';(d.passages||[]).forEach(p=>{const a=document.createElement('article');"
+        "const s=document.createElement('small');"
+        "s.textContent=[p.citation_id,p.title,p.article_number].filter(Boolean).join(' - ');"
+        "const t=document.createElement('p');t.textContent=p.text;"
+        "a.append(s,t);out.append(a)});"
+        "}catch(e){out.textContent=e.message}}</script>"
+    )

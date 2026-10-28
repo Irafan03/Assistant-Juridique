@@ -1,0 +1,112 @@
+[
+  {
+    "id": "q_aml_01",
+    "query": "Quelles sont les obligations d'une banque en matière de lutte contre le blanchiment d'argent ?",
+    "note": "Circulaire 5/W/2017, loi 43-05 — obligations AML",
+    "relevant_circulars": [
+      "4183eab7-3be7-5187-a5c1-17cab29a4890",
+      "bc5302b0-4135-5b18-8575-7d744e283fca",
+      "1811ecc4-e478-5094-9247-eac4f4a65cec"
+    ],
+    "relevant_laws": [
+      "88c90612-6e79-590d-ad3b-5d0ff951bfa5",
+      "3250af8a-a9e3-520e-8162-31a4503934cc",
+      "94ca7464-beda-5def-9784-e183cf85c346"
+    ],
+    "relevant_articles": [
+      "88c90612-6e79-590d-ad3b-5d0ff951bfa5",
+      "3250af8a-a9e3-520e-8162-31a4503934cc",
+      "94ca7464-beda-5def-9784-e183cf85c346",
+      "4183eab7-3be7-5187-a5c1-17cab29a4890",
+      "cd7fb7c9-0c54-5a00-a8e6-f0a883389ec6",
+      "bc5302b0-4135-5b18-8575-7d744e283fca",
+      "1811ecc4-e478-5094-9247-eac4f4a65cec",
+      "859972ab-ac9f-5d1a-8829-0a24eb00037c"
+    ],
+    "_verified_from_index": true,
+    "_keywords_used": [
+      [
+        "blanchiment",
+        "declaration",
+        "soupcon"
+      ],
+      [
+        "blanchiment",
+        "vigilance",
+        "client"
+      ],
+      [
+        "blanchiment",
+        "identification",
+        "client"
+      ],
+      [
+        "blanchiment",
+        "conservation",
+        "documents"
+      ],
+      [
+        "blanchiment",
+        "procedure",
+        "interne"
+      ]
+    ]
+  },
+  {
+    "id": "q_fonds_01",
+    "query": "Quelles règles prudentielles encadrent les fonds propres et la solvabilité des établissements de crédit ?",
+    "note": "Loi 51-20 art.76, circulaire 14/G/2013",
+    "relevant_circulars": [
+      "10bcb4d1-ec59-5967-8b91-7b66baeb837b",
+      "cb359723-b34b-5498-acff-183526890f8c",
+      "62235b4a-e57a-5b3f-8eac-b96411e1c6e8",
+      "d9a5c152-cfdf-5a0f-9f55-57e0ddc804bb"
+    ],
+    "relevant_laws": [
+      "91d7830a-695a-5e66-a7fd-282d6b8875dd"
+    ],
+    "relevant_articles": [
+      "91d7830a-695a-5e66-a7fd-282d6b8875dd",
+      "10bcb4d1-ec59-5967-8b91-7b66baeb837b",
+      "cb359723-b34b-5498-acff-183526890f8c",
+      "62235b4a-e57a-5b3f-8eac-b96411e1c6e8",
+      "d9a5c152-cfdf-5a0f-9f55-57e0ddc804bb"
+    ],
+    "_verified_from_index": true,
+    "_keywords_used": [
+      [
+        "fonds propres",
+        "solvabilite"
+      ],
+      [
+        "fonds propres",
+        "risques"
+      ],
+      [
+        "solvabilite",
+        "liquidite"
+      ]
+    ]
+  },
+  {
+    "id": "q_aml_02",
+    "query": "Quelles sont les obligations de déclaration de soupçon pour les établissements de crédit ?",
+    "note": "Déclaration de soupçon — loi 43-05",
+    "relevant_circulars": [],
+    "relevant_laws": [],
+    "relevant_articles": [],
+    "_verified_from_index": true,
+    "_keywords_used": [
+      [
+        "declaration",
+        "soupcon",
+        "blanchiment"
+      ],
+      [
+        "soupcon",
+        "etablissement",
+        "credit"
+      ]
+    ]
+  }
+]

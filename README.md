@@ -1,94 +1,175 @@
-# Assistant juridique — retrieval RAG
+# Assistant juridique — RAG juridique (Prompt 1 + Prompt 2)
 
-Cette partie implémente la recherche et la présentation des résultats demandées dans `Prompt 2.md`. Elle consomme les index construits par le module d’ingestion de Prompt 1 et ne crée ni index vectoriel ni embeddings.
+Ce dépôt contient les deux parties du moteur de recherche juridique :
 
-## État du workspace
+- **Ingestion & indexation (Prompt 1)** — extraction PDF/DOCX, trois stratégies de chunking, embeddings locaux, stockage FAISS + SQLite.
+- **Retrieval & API (Prompt 2)** — recherche hybride BM25 + vectorielle, reranking, API FastAPI, interface web.
 
-Le dépôt fourni ne contient actuellement que les deux prompts et un rapport PDF sur FlowForge, un projet d’automatisation sans rapport avec le corpus juridique. Il n’y a ni corpus juridique, ni indexation, ni interface du premier membre. Le code ci-dessous définit donc le contrat d’adaptation. Aucune relation juridique ni mesure expérimentale n’est préremplie. Les 20 questions et leurs réponses attendues doivent être annotées à partir des documents réels avant de lancer l’évaluation.
+---
 
-## Contrat avec le module d’indexation
+## Architecture
 
-Fournir un objet conforme à `legal_rag.interfaces.IndexAdapter` :
-
-- `search(query, strategy, limit)` : recherche sémantique dans l’index de la stratégie indiquée.
-- `iter_chunks(strategy)` : passages de cette stratégie, pour BM25 et les références exactes.
-- `get_chunk(chunk_id, strategy)` et `get_parent(chunk, strategy)` : récupération des parents.
-
-`strategy` vaut `structural`, `hierarchical` ou `parent_child`. Chaque élément est un `Chunk` ou un dictionnaire converti par `Chunk.from_mapping`. Le schéma conserve les champs communs de Prompt 1, ainsi que `verified_metadata`, qui identifie les valeurs confirmées humainement. Les champs inconnus restent absents : le retrieval ne complète pas les métadonnées manquantes.
-
-Exemple minimal d’adaptation :
-
-```python
-from legal_rag.api import create_app
-from legal_rag.models import Chunk
-from legal_rag.retrieval import LegalRetriever
-
-class Prompt1Adapter:
-    def __init__(self, prompt1_index):
-        self.index = prompt1_index
-
-    def search(self, query, *, strategy, limit):
-        return [Chunk.from_mapping(row) for row in self.index.search(query, strategy=strategy, k=limit)]
-
-    def iter_chunks(self, *, strategy):
-        return [Chunk.from_mapping(row) for row in self.index.iter_chunks(strategy=strategy)]
-
-    def get_chunk(self, chunk_id, *, strategy):
-        row = self.index.get_chunk(chunk_id, strategy=strategy)
-        return Chunk.from_mapping(row) if row else None
-
-    def get_parent(self, chunk, *, strategy):
-        row = self.index.get_parent(chunk.chunk_id, strategy=strategy)
-        return Chunk.from_mapping(row) if row else None
-
-adapter = Prompt1Adapter(your_index)
-app = create_app(LegalRetriever(adapter), document_root="/path/to/corpus")
+```
+legal_rag/
+├── extraction.py   # Extraction PDF/DOCX avec OCR (Prompt 1)
+├── chunking.py     # 3 stratégies de chunking (Prompt 1)
+├── indexing.py     # Embeddings + FAISS/SQLite + IndexAdapter (Prompt 1)
+├── models.py       # Schéma commun Chunk, Candidate, SearchResponse
+├── interfaces.py   # Protocoles IndexAdapter, Reranker, AnswerGenerator
+├── references.py   # Extraction de références juridiques FR/AR
+├── retrieval.py    # Moteur hybride BM25 + RRF (Prompt 2)
+├── metrics.py      # Precision@k, Recall@k, MRR, nDCG@k (Prompt 2)
+├── evaluation.py   # Harnais d'évaluation sur 20 questions (Prompt 2)
+└── api.py          # API FastAPI + interface web (Prompt 2)
 ```
 
-Adapter les noms d’arguments à l’API réelle du premier module. Le serveur ne peut pas ouvrir les originaux tant que `document_root` n’est pas configuré; les chemins d’index sont alors confinés à ce répertoire.
+---
 
-## Fonctionnement
+## Partie ingestion — Prompt 1
 
-- Recherche vectorielle fournie par l’adaptateur et BM25 local, combinés par Reciprocal Rank Fusion (RRF).
-- Mode `semantic` pour la référence vectorielle seule et mode `hybrid` par défaut.
-- Détection des références au format légal français, puis résolution exacte contre les références effectivement présentes dans les chunks et leurs métadonnées.
-- Les relations explicites entre circulaires et textes sont étiquetées `explicit_reference`; les voisins issus du classement restent `semantic_similarity`.
-- Un reranker peut être fourni via `Reranker`. Aucun modèle externe ou appel LLM n’est imposé.
-- Le générateur optionnel reçoit uniquement les passages retenus comme preuves. Les citations et leur rendu final doivent pointer vers les `citation_id` et les passages transmis. Sans générateur configuré, l’API renvoie les extraits et ne fabrique pas de réponse juridique.
-- L’interface web est servie sur `/`; API de recherche sur `POST /api/search`, originaux sur `GET /api/documents/{document_id}/file`.
-
-## Lancement
+### Installation
 
 ```powershell
 python -m pip install -e ".[dev]"
-uvicorn your_adapter_module:app --reload
+# Optionnel : OCR (nécessite Tesseract installé sur le système)
+# https://github.com/tesseract-ocr/tesseract
+# Optionnel : GPU
+# pip install faiss-gpu  (à la place de faiss-cpu)
 ```
 
-Le module montré dans l’exemple doit exporter `app` après avoir construit l’adaptateur. Le `app` fourni par `legal_rag.api` sans adaptateur répond avec HTTP 503, afin de signaler l’absence d’index configuré.
+> **Sans `faiss-cpu`** : un backend numpy de secours est activé automatiquement.
+> Les performances ne sont pas optimisées pour de grands corpus ; installez `faiss-cpu` pour le corpus complet.
 
-Requête API :
+### Extraction de documents
+
+```python
+from legal_rag.extraction import extract_document
+
+doc = extract_document("corpus/circulaire-5.pdf", ocr_lang="fra+ara")
+print(doc.detected_type)   # "circulaire" — auto-détecté
+print(doc.metadata["title"])
+# Les clés auto-extraites sont listées dans doc.metadata["_auto_keys"]
+```
+
+- Supporte **PDF** (PyMuPDF) et **DOCX** (python-docx).
+- Active l'**OCR** (pytesseract + Pillow) si une page contient moins de 50 caractères.
+- Les champs `detected_type`, `title`, `date` sont marqués `_auto_keys` : non vérifiés.
+
+### Trois stratégies de chunking
+
+```python
+from legal_rag.chunking import chunk_document
+
+chunks_s  = chunk_document(doc, "structural")    # par articles
+chunks_h  = chunk_document(doc, "hierarchical")  # arbre doc->section->article->feuille
+chunks_pc = chunk_document(doc, "parent_child")  # larges parents + enfants chevauchants
+```
+
+Chaque chunk est un `Chunk` conforme au schéma commun :
+`document_id`, `chunk_id`, `text`, `document_type`, `title`, `parent_id`,
+`source_file`, `page_number`, `article_number`, `references`.
+
+### Indexation et recherche
+
+```python
+from legal_rag.indexing import LegalIndex
+
+# Construire les trois index
+index = LegalIndex("data/index")
+index.add_documents(
+    ["corpus/circulaire-5.pdf", "corpus/loi-12-03.pdf"],
+    show_progress=True,
+)
+
+# Chaque stratégie est indépendante
+chunks = index.iter_chunks(strategy="structural")
+results = index.search("règles de provisionnement", strategy="hierarchical", limit=5)
+```
+
+**Réindexation sans doublon** : un document déjà indexé (même `chunk_id`) est mis à jour
+plutôt que dupliqué.
+
+**Modèle d'embedding** : `paraphrase-multilingual-MiniLM-L12-v2` (multilingue FR/AR,
+téléchargé automatiquement par `sentence-transformers`). Peut être remplacé :
+
+```python
+from legal_rag.indexing import EmbeddingModel, LegalIndex
+index = LegalIndex("data/index", model_name="intfloat/multilingual-e5-base")
+```
+
+**Structure sur disque** :
+```
+data/index/
+├── structural/    faiss.index  +  metadata.db
+├── hierarchical/  faiss.index  +  metadata.db
+└── parent_child/  faiss.index  +  metadata.db
+```
+
+### Connexion avec la partie Prompt 2
+
+`LegalIndex` implémente directement le protocole `IndexAdapter` défini par Prompt 2 :
+
+```python
+from legal_rag.indexing import LegalIndex
+from legal_rag.retrieval import LegalRetriever
+from legal_rag.api import create_app
+
+index = LegalIndex("data/index")
+retriever = LegalRetriever(index)
+app = create_app(retriever, document_root="corpus/")
+# uvicorn my_module:app --reload
+```
+
+---
+
+## Partie retrieval & API — Prompt 2
+
+### Contrat avec le module d'indexation
+
+Fournir un objet conforme à `legal_rag.interfaces.IndexAdapter` :
+
+- `search(query, strategy, limit)` : recherche sémantique dans l'index de la stratégie indiquée.
+- `iter_chunks(strategy)` : passages de cette stratégie, pour BM25 et les références exactes.
+- `get_chunk(chunk_id, strategy)` et `get_parent(chunk, strategy)` : récupération des parents.
+
+`strategy` vaut `structural`, `hierarchical` ou `parent_child`.
+
+### Fonctionnement
+
+- Recherche vectorielle fournie par l'adaptateur et BM25 local, combinés par Reciprocal Rank Fusion (RRF).
+- Mode `semantic` pour la référence vectorielle seule et mode `hybrid` par défaut.
+- Détection des références au format légal français et arabe, puis résolution exacte contre les références présentes dans les chunks.
+- Les relations explicites sont étiquetées `explicit_reference` ; les voisins sémantiques restent `semantic_similarity`.
+- Un reranker peut être fourni via `Reranker`. Aucun modèle externe n'est imposé.
+- L'interface web est servie sur `/` ; API sur `POST /api/search`, originaux sur `GET /api/documents/{id}/file`.
+
+### Requête API
 
 ```json
-{"query":"Quelles règles la circulaire applique-t-elle au congé ?","strategy":"structural","retrieval_mode":"hybrid","limit":10,"generate_answer":false}
+{"query": "Quelles règles la circulaire applique-t-elle au congé ?",
+ "strategy": "structural", "retrieval_mode": "hybrid", "limit": 10, "generate_answer": false}
 ```
+
+---
 
 ## Évaluation sur le corpus
 
-Créer `evaluation/cases.json` avec exactement 20 questions. Chaque liste de pertinence doit contenir des identifiants `chunk_id` vérifiés dans les index :
+Créer `evaluation/cases.json` avec exactement 20 questions annotées depuis les documents réels :
 
 ```json
-[
-  {
-    "id": "q01",
-    "query": "Question vérifiée sur un document réel",
-    "relevant_circulars": ["chunk-circulaire-1"],
-    "relevant_laws": ["chunk-loi-4"],
-    "relevant_articles": ["chunk-article-17"]
-  }
-]
+[{
+  "id": "q01",
+  "query": "Question vérifiée sur un document réel",
+  "relevant_circulars": ["chunk-circulaire-1"],
+  "relevant_laws": ["chunk-loi-4"],
+  "relevant_articles": ["chunk-article-17"]
+}]
 ```
 
-Les métriques sont calculées séparément pour circulaires, textes associés et articles : Precision@k, Recall@k, MRR et nDCG@k. `run_evaluation` accepte des configurations nommées, par exemple une entrée par stratégie/mode et une variante avec reranker activé. Comparer les résultats seulement après annotation des jugements attendus depuis le corpus. Le script ne fournit volontairement aucun score par défaut.
+Les métriques (Precision@k, Recall@k, MRR, nDCG@k) sont calculées séparément pour
+circulaires, textes associés et articles, par stratégie et par mode de recherche.
+
+---
 
 ## Vérification
 
@@ -96,4 +177,5 @@ Les métriques sont calculées séparément pour circulaires, textes associés e
 python -m pytest
 ```
 
-Les tests couvrent les métriques, les références explicites, les parents et le lien vers un texte associé. Ils n’évaluent pas la qualité d’un index juridique absent de ce workspace.
+Les tests couvrent : extraction, chunking (3 stratégies), indexation, réindexation sans doublon,
+métriques, références explicites, parents, textes associés et API.

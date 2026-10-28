@@ -5,12 +5,25 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "assistant-juridique-retrieval"
 version = "0.1.0"
-description = "Recherche hybride et API pour un assistant juridique RAG"
+description = "Ingestion, indexation et recherche hybride pour un assistant juridique RAG"
 requires-python = ">=3.10"
-dependencies = ["fastapi>=0.110,<1", "uvicorn[standard]>=0.27,<1"]
+dependencies = [
+    "fastapi>=0.110,<1",
+    "uvicorn[standard]>=0.27,<1",
+    "aiofiles>=23,<25",              # requis par FastAPI StaticFiles
+    # Ingestion — Prompt 1
+    "pymupdf>=1.24,<2",               # extraction PDF (PyMuPDF)
+    "python-docx>=1.1,<2",            # extraction DOCX
+    "pytesseract>=0.3,<1",            # OCR pour documents scannés
+    "Pillow>=10,<12",                 # images pour OCR
+    "sentence-transformers>=3,<4",    # embeddings locaux multilingues
+    "faiss-cpu>=1.8,<2",              # vecteurs FAISS
+    "numpy>=1.26,<3",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<9", "httpx>=0.27,<1"]
+# Pour GPU : remplacer faiss-cpu par faiss-gpu
 
 [tool.setuptools.packages.find]
 include = ["legal_rag*"]
